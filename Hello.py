@@ -8,7 +8,8 @@ from wtforms.validators import DataRequired
 from flask import Flask, render_template, session, redirect, url_for, flash
 
 class NameForm(FlaskForm):
-    name = StringField('What is your name?', validators=[DataRequired()])
+    name = StringField('What is your name?', validators=[DataRequired()], render_kw={"required": True})
+    email = StringField('What is your email?', validators=[DataRequired()], render_kw={"type": "email", "required": True})
     submit = SubmitField('Submit')
 
 app = Flask(__name__)
@@ -17,20 +18,48 @@ moment = Moment(app)
 
 app.config['SECRET_KEY'] = 'hard to guess string'
 
+def check_email(email: str) -> bool:
+    if not email:
+        return False
+    s = email.lower().strip()
+    return s.endswith('@utoronto.ca') or s.endswith('@mail.utoronto.ca')
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
     form = NameForm()
     if form.validate_on_submit():
         old_name = session.get('name')
+        old_email = session.get('email')
+
         if old_name is not None and old_name != form.name.data:
             flash('Looks like you have changed your name!')
+        if old_email is not None and old_email != form.email.data:
+            flash('Looks like you have changed your email!')
+        
         session['name'] = form.name.data
+        session['email'] = form.email.data
+        
         return redirect(url_for('index'))
-    current_time = datetime.utcnow()
-    return render_template('index.html',
-        form = form, name = session.get('name'), current_time=current_time)
 
+    name = session.get('name')
+    email = session.get('email')
+    
+    if email:
+        if check_email(email):
+            email_message = f"Your UofT email is {email}"
+        else:
+            email_message = "Please use your UofT email."
+    else:
+        email_message = None
+
+    return render_template(
+        'index.html',
+        form=form,
+        name=name,
+        email=email,
+        email_message=email_message,
+        current_time=datetime.utcnow(),
+    )
 
 @app.route('/user/<name>')
 def user(name):
